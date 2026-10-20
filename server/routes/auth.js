@@ -2,7 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Supplier from "../models/supplier.js";
-
+import auth from "../middleware/auth.js";
 const router = express.Router();
 
 const createToken = (id) =>
@@ -61,6 +61,18 @@ router.post("/login", async (req, res) => {
       token: createToken(supplier._id),
       supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
     });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+// GET /api/auth/me  (protected)
+router.get("/me", auth, async (req, res) => {
+  try {
+    const supplier = await Supplier.findById(req.supplierId).select("-password");
+    if (!supplier) {
+      return res.status(401).json({ message: "Supplier not found" });
+    }
+    res.json(supplier);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
