@@ -1,8 +1,17 @@
 import express from "express";
 import mongoose from "mongoose";
 import Household from "../models/household.js";
+import { predictRunout } from "../services/prediction.js";
 
 const router = express.Router();
+
+const STATUS_FILTERS = {
+  overdue: "Overdue",
+  urgent: "Urgent",
+  "due-soon": "Due Soon",
+  safe: "Safe",
+  "no-data": "No data",
+};
 
 const EDITABLE = [
   "name",
@@ -13,6 +22,14 @@ const EDITABLE = [
   "expectedCycleDays",
   "alertLeadDays",
 ];
+
+const withPrediction = (household) => ({
+  ...household.toObject(),
+  prediction: predictRunout(household),
+});
+
+// households with no data sort last
+const sortKey = (h) => h.prediction.daysLeft ?? Number.MAX_SAFE_INTEGER;
 
 // copy only the allowed fields from the request body
 const pick = (obj, keys) =>
@@ -34,13 +51,56 @@ const handleError = (err, res) => {
   res.status(500).json({ message: "Server error" });
 };
 
-// GET /api/households
+// GET /api/households?status=urgent
 router.get("/", async (req, res) => {
   try {
-    const households = await Household.find({ supplier: req.supplierId }).sort({
-      createdAt: -1,
+    let wanted;
+    if (req.query.status) {
+      wanted = STATUS_FILTERS[req.query.status];
+      if (!wanted) {
+        return res.status(400).json({
+          message: `Invalid status. Use one of: ${Object.keys(STATUS_FILTERS).join(", ")}`,
+        });
+      }
+    }
+
+    const households = await Household.find({ supplier: req.supplierId });
+    let result = households.map(withPrediction);
+
+    if (wanted) {
+      result = result.filter((h) => h.prediction.status === wanted);
+    }
+    result.sort((a, b) => sortKey(a) - sortKey(b)); // most urgent first
+
+    res.json(result);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// GET /api/households/summary  (must stay above /:id)
+router.get("/summary", async (req, res) => {
+  try {
+    const households = await Household.find({ supplier: req.supplierId });
+
+    const keys = {
+      Overdue: "overdue",
+      Urgent: "urgent",
+      "Due Soon": "dueSoon",
+      Safe: "safe",
+      "No data": "noData",
+    };
+    const counts = { overdue: 0, urgent: 0, dueSoon: 0, safe: 0, noData: 0 };
+
+    for (const h of households) {
+      counts[keys[predictRunout(h).status]]++;
+    }
+
+    res.json({
+      total: households.length,
+      ...counts,
+      actionNeeded: counts.overdue + counts.urgent + counts.dueSoon,
     });
-    res.json(households);
   } catch (err) {
     handleError(err, res);
   }
@@ -78,7 +138,7 @@ router.get("/:id", checkId, async (req, res) => {
     if (!household) {
       return res.status(404).json({ message: "Household not found" });
     }
-    res.json(household);
+    res.json(withPrediction(household));
   } catch (err) {
     handleError(err, res);
   }
