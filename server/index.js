@@ -3,13 +3,17 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
+import householdRoutes from "./routes/households.js";
+import auth from "./middleware/auth.js";
 
 dotenv.config();
-app.use("/api/auth", authRoutes);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
+app.use("/api/households", auth, householdRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
