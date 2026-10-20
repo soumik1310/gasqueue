@@ -117,4 +117,42 @@ router.delete("/:id", checkId, async (req, res) => {
   }
 });
 
+// POST /api/households/:id/refills
+router.post("/:id/refills", checkId, async (req, res) => {
+  try {
+    const date = req.body.date ? new Date(req.body.date) : new Date();
+
+    if (isNaN(date)) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+    if (date > new Date()) {
+      return res.status(400).json({ message: "Refill date can't be in the future" });
+    }
+
+    const household = await Household.findOne({
+      _id: req.params.id,
+      supplier: req.supplierId,
+    });
+    if (!household) {
+      return res.status(404).json({ message: "Household not found" });
+    }
+
+    const day = date.toISOString().slice(0, 10);
+    const duplicate = household.refills.some(
+      (r) => r.date.toISOString().slice(0, 10) === day
+    );
+    if (duplicate) {
+      return res.status(409).json({ message: "A refill is already logged for that date" });
+    }
+
+    household.refills.push({ date });
+    household.alertedForCycle = false; // a new cycle starts, so alerts can fire again
+    await household.save();
+
+    res.status(201).json(household);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 export default router;
