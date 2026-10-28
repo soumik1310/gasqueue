@@ -3,10 +3,26 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Supplier from "../models/supplier.js";
 import auth from "../middleware/auth.js";
+
 const router = express.Router();
+
+const isProd = process.env.NODE_ENV === "production";
+
+// The rules for our cookie
+const cookieOptions = {
+  httpOnly: true,                    // JavaScript in the browser cannot read it (blocks token theft via XSS)
+  secure: isProd,                    // in production, only sent over HTTPS
+  sameSite: isProd ? "none" : "lax", // "none" is needed when the frontend and API are on different domains
+  maxAge: 7 * 24 * 60 * 60 * 1000,   // 7 days, in milliseconds (matches the token's expiry)
+};
 
 const createToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+// Create the token and attach it to the response as a cookie named "token"
+const setAuthCookie = (res, supplierId) => {
+  res.cookie("token", createToken(supplierId), cookieOptions);
+};
 
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
@@ -31,8 +47,8 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const supplier = await Supplier.create({ name, email, password: hashed });
 
+    setAuthCookie(res, supplier._id);   // CHANGED: cookie instead of token in the body
     res.status(201).json({
-      token: createToken(supplier._id),
       supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
     });
   } catch (err) {
@@ -57,14 +73,23 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    setAuthCookie(res, supplier._id);   // CHANGED
     res.json({
-      token: createToken(supplier._id),
       supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
     });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// POST /api/auth/logout  (NEW)
+router.post("/logout", (req, res) => {
+  // To delete a cookie, the options must match the ones used to set it (except maxAge)
+  const { maxAge, ...clearOptions } = cookieOptions;
+  res.clearCookie("token", clearOptions);
+  res.json({ message: "Logged out" });
+});
+
 // GET /api/auth/me  (protected)
 router.get("/me", auth, async (req, res) => {
   try {
