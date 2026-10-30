@@ -28,11 +28,9 @@ const withPrediction = (household) => ({
   prediction: predictRunout(household),
 });
 
-// households with no data sort last
 const sortKey = (h) => h.prediction.daysLeft ?? Number.MAX_SAFE_INTEGER;
 
-// copy only the allowed fields from the request body
-const pick = (obj, keys) => {
+const pick = (obj, keys) => {//choose whats there in the url from the list of editables only
   const result = {};
   for (const k of keys) {
     if (obj[k] !== undefined) {
@@ -74,8 +72,11 @@ router.get("/", async (req, res) => {
     if (wanted) {
       result = result.filter((h) => h.prediction.status === wanted);
     }
-    result.sort((a, b) => sortKey(a) - sortKey(b)); // most urgent first
-
+    result.sort((a, b) => {
+      const aDays = a.prediction.daysLeft ?? Number.MAX_SAFE_INTEGER;
+      const bDays = b.prediction.daysLeft ?? Number.MAX_SAFE_INTEGER;
+      return aDays - bDays;
+    });
     res.json(result);
   } catch (err) {
     handleError(err, res);

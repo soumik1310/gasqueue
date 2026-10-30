@@ -48,7 +48,7 @@ export const CYLINDER_DEFAULTS = {
   },
 };
 
-// the number of days used by the prediction (tier 3)
+
 export function getDefaultDays(cylinderType) {
   const entry = CYLINDER_DEFAULTS[cylinderType] || CYLINDER_DEFAULTS.domestic_14_2kg;
   return entry.days;

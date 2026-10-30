@@ -8,12 +8,11 @@ const router = express.Router();
 
 const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = {
-  httpOnly: true,                    // JavaScript in the browser cannot read it (blocks token theft via XSS)
-  secure: isProd,                    // in production, only sent over HTTPS
-  sameSite: isProd ? "none" : "lax", // "none" is needed when the frontend and API are on different domains
-  maxAge: 7 * 24 * 60 * 60 * 1000,   // 7 days, in milliseconds (matches the token's expiry)
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
-//Locally I use lax. In production, where the frontend and API are on different domains, I use none with secure: true so the browser still sends the cookie.
 
 const createToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -21,6 +20,12 @@ const createToken = (id) =>
 const setAuthCookie = (res, supplierId) => {
   res.cookie("token", createToken(supplierId), cookieOptions);
 };
+
+const publicSupplier = (supplier) => ({
+  id: supplier._id,
+  name: supplier.name,
+  email: supplier.email,
+});
 
 router.post("/register", async (req, res) => {
   try {
@@ -44,15 +49,13 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const supplier = await Supplier.create({ name, email, password: hashed });
 
-    setAuthCookie(res, supplier._id);  
-    res.status(201).json({
-      supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
-    });
+    setAuthCookie(res, supplier._id);
+    res.status(201).json({ supplier: publicSupplier(supplier) });
   } catch (err) {
+    console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 router.post("/login", async (req, res) => {
   try {
@@ -70,21 +73,16 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    setAuthCookie(res, supplier._id);  
-    res.json({
-      supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
-    });
+    setAuthCookie(res, supplier._id);
+    res.json({ supplier: publicSupplier(supplier) });
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 router.post("/logout", (req, res) => {
-res.clearCookie('token', {
-  httpOnly: true,
-  secure: isProd,
-  sameSite: isProd ? 'none' : 'lax',
-});
+  res.clearCookie("token", cookieOptions);
   res.json({ message: "Logged out" });
 });
 
@@ -96,6 +94,7 @@ router.get("/me", auth, async (req, res) => {
     }
     res.json(supplier);
   } catch (err) {
+    console.error("Me error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
