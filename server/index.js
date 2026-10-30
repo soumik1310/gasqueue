@@ -1,19 +1,18 @@
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import cookieParser from "cookie-parser";   // NEW: reads cookies from requests
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import householdRoutes from "./routes/households.js";
+import settingsRoutes from "./routes/settings.js";
+import defaultsRoutes from "./routes/defaults.js"; // NEW
 import auth from "./middleware/auth.js";
 
 dotenv.config();
 
 const app = express();
 
-// CHANGED: with cookies, "allow everyone" no longer works.
-// origin = the one website allowed to call this API
-// credentials = allow the browser to send/receive cookies
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -21,10 +20,12 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(cookieParser());   // NEW: must come before any route that reads req.cookies
+app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/defaults", defaultsRoutes); // NEW (public, no auth)
 app.use("/api/households", auth, householdRoutes);
+app.use("/api/settings", auth, settingsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });

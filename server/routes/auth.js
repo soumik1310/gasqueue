@@ -7,24 +7,21 @@ import auth from "../middleware/auth.js";
 const router = express.Router();
 
 const isProd = process.env.NODE_ENV === "production";
-
-// The rules for our cookie
 const cookieOptions = {
   httpOnly: true,                    // JavaScript in the browser cannot read it (blocks token theft via XSS)
   secure: isProd,                    // in production, only sent over HTTPS
   sameSite: isProd ? "none" : "lax", // "none" is needed when the frontend and API are on different domains
   maxAge: 7 * 24 * 60 * 60 * 1000,   // 7 days, in milliseconds (matches the token's expiry)
 };
+//Locally I use lax. In production, where the frontend and API are on different domains, I use none with secure: true so the browser still sends the cookie.
 
 const createToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-// Create the token and attach it to the response as a cookie named "token"
 const setAuthCookie = (res, supplierId) => {
   res.cookie("token", createToken(supplierId), cookieOptions);
 };
 
-// POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
     const { name, password } = req.body;
@@ -47,7 +44,7 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const supplier = await Supplier.create({ name, email, password: hashed });
 
-    setAuthCookie(res, supplier._id);   // CHANGED: cookie instead of token in the body
+    setAuthCookie(res, supplier._id);  
     res.status(201).json({
       supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
     });
@@ -56,7 +53,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// POST /api/auth/login
+
 router.post("/login", async (req, res) => {
   try {
     const { password } = req.body;
@@ -73,7 +70,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    setAuthCookie(res, supplier._id);   // CHANGED
+    setAuthCookie(res, supplier._id);  
     res.json({
       supplier: { id: supplier._id, name: supplier.name, email: supplier.email },
     });
@@ -82,15 +79,15 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// POST /api/auth/logout  (NEW)
 router.post("/logout", (req, res) => {
-  // To delete a cookie, the options must match the ones used to set it (except maxAge)
-  const { maxAge, ...clearOptions } = cookieOptions;
-  res.clearCookie("token", clearOptions);
+res.clearCookie('token', {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? 'none' : 'lax',
+});
   res.json({ message: "Logged out" });
 });
 
-// GET /api/auth/me  (protected)
 router.get("/me", auth, async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.supplierId).select("-password");

@@ -32,11 +32,15 @@ const withPrediction = (household) => ({
 const sortKey = (h) => h.prediction.daysLeft ?? Number.MAX_SAFE_INTEGER;
 
 // copy only the allowed fields from the request body
-const pick = (obj, keys) =>
-  Object.fromEntries(
-    keys.filter((k) => obj[k] !== undefined).map((k) => [k, obj[k]])
-  );
-
+const pick = (obj, keys) => {
+  const result = {};
+  for (const k of keys) {
+    if (obj[k] !== undefined) {
+      result[k] = obj[k];
+    }
+  }
+  return result;
+};
 const checkId = (req, res, next) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ message: "Invalid household id" });

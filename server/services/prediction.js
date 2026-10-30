@@ -1,14 +1,12 @@
+import { getDefaultDays } from "../data/cylinderDefaults.js"; // NEW
+
 const DAY_MS = 86400000;
 
 export const MIN_REFILLS_FOR_HISTORY = 3;
 export const URGENT_DAYS = 3;
 export const DUE_SOON_DAYS = 7;
 
-// PLACEHOLDER VALUES: replace with your researched numbers (Step 8 moves these to a sourced table)
-export const CYLINDER_DEFAULTS = {
-  domestic_14_2kg: 45,
-  commercial_19kg: 14,
-};
+// (the old CYLINDER_DEFAULTS table was removed from here)
 
 // midnight (UTC) of the given date, as a number, so we compare whole days
 const startOfDay = (d) => {
@@ -40,10 +38,8 @@ export function getCycle(household) {
     return { days: household.expectedCycleDays, source: "supplier" };
   }
 
-  // tier 3: default for the cylinder type
-  const fallback =
-    CYLINDER_DEFAULTS[household.cylinderType] ?? CYLINDER_DEFAULTS.domestic_14_2kg;
-  return { days: fallback, source: "default" };
+  // tier 3: researched default for the cylinder type (CHANGED)
+  return { days: getDefaultDays(household.cylinderType), source: "default" };
 }
 
 export function getStatus(daysLeft) {

@@ -1,11 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  predictRunout,
-  getCycle,
-  getStatus,
-  CYLINDER_DEFAULTS,
-} from "../services/prediction.js";
+import { predictRunout, getStatus } from "../services/prediction.js";
+import { getDefaultDays } from "../data/cylinderDefaults.js"; // CHANGED
 
 const TODAY = new Date("2026-10-20");
 
@@ -57,7 +53,7 @@ test("supplier estimate is used when history is too short", () => {
 test("default is used when there is no history and no supplier estimate", () => {
   const r = predictRunout(hh(["2026-10-01"]), TODAY);
   assert.equal(r.source, "default");
-  assert.equal(r.cycleDays, CYLINDER_DEFAULTS.domestic_14_2kg);
+  assert.equal(r.cycleDays, getDefaultDays("domestic_14_2kg")); // CHANGED
 });
 
 test("no refills means no prediction", () => {
