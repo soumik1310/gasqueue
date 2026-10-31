@@ -29,13 +29,11 @@ export async function osrmTrip(depot, stops) {
     throw new Error(`OSRM said: ${data.code}`);
   }
 
-  const visited = points
-    .map((point, i) => ({
-      point,
-      position: data.waypoints[i].waypoint_index,
-    }))
-    .sort((a, b) => a.position - b.position)
-    .map((item) => item.point);
+  const visited = [];
+  points.forEach((point, i) => {
+    const position = data.waypoints[i].waypoint_index;
+    visited[position] = point;
+  });
 
   const start = visited.indexOf(depot);
   const rotated = [...visited.slice(start), ...visited.slice(0, start)];
