@@ -4,9 +4,10 @@ import { useAuth } from "../AuthContext";
 import StatsBar from "../components/StatsBar";
 import MapView from "../components/MapView";
 import HouseholdList from "../components/HouseholdList";
+import RoutePanel from "../components/RoutePanel";
+import AddHouseholdModal from "../components/AddHouseholdModal";
 import "./dashboard.css";
 
-// "key" matches the ?status= values your server accepts
 const FILTERS = [
   { key: "all", label: "All", count: (s) => s.total },
   { key: "overdue", label: "Overdue", count: (s) => s.overdue },
@@ -19,18 +20,24 @@ export default function Dashboard() {
   const { supplier, logout } = useAuth();
   const [summary, setSummary] = useState(null);
   const [depot, setDepot] = useState(null);
+  const [allHouseholds, setAllHouseholds] = useState([]); // for the map dots
   const [tab, setTab] = useState("households"); // "households" or "route"
   const [filter, setFilter] = useState("all");
   const [version, setVersion] = useState(0); // goes up whenever data changes
   const [error, setError] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [route, setRoute] = useState(null);
+  const [routeError, setRouteError] = useState("");
 
   const loadData = useCallback(async () => {
     try {
-      const [sum, settings] = await Promise.all([
+      const [sum, settings, list] = await Promise.all([
         api.get("/households/summary"),
         api.get("/settings"),
+        api.get("/households"),
       ]);
       setSummary(sum.data);
+      setAllHouseholds(list.data);
 
       const d = settings.data.depot;
       setDepot(d?.lat != null && d?.lng != null ? { lat: d.lat, lng: d.lng } : null);
@@ -44,7 +51,28 @@ export default function Dashboard() {
     loadData();
   }, [loadData]);
 
-  // called after a refill or delete: refresh the counts and the list
+  // load the delivery route while the Route tab is open
+  useEffect(() => {
+    if (tab !== "route") return;
+    let cancelled = false;
+    api
+      .get("/route/today")
+      .then((res) => {
+        if (cancelled) return;
+        setRoute(res.data);
+        setRouteError("");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setRoute(null);
+        setRouteError(err.response?.data?.message || "Could not load the route");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, version]);
+
+  // called after a refill, delete or add: refresh counts, map and lists
   const refresh = () => {
     loadData();
     setVersion((v) => v + 1);
@@ -55,10 +83,10 @@ export default function Dashboard() {
       <StatsBar summary={summary} depot={depot} />
 
       <div className="toolbar">
-        <button className="btn btn-primary" disabled title="Coming in a later step">
+        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
           + Add Household
         </button>
-        <button className="btn" disabled title="Coming in a later step">
+        <button className="btn" disabled title="Coming in the next step">
           Set Depot
         </button>
         <div className="spacer" />
@@ -85,7 +113,11 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {error && <p className="error" style={{ padding: "8px 12px" }}>{error}</p>}
+          {error && (
+            <p className="error" style={{ padding: "8px 12px" }}>
+              {error}
+            </p>
+          )}
 
           {tab === "households" ? (
             <>
@@ -100,23 +132,31 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-              {/* key={filter} makes the list start fresh (page 1) when the filter changes */}
-              <HouseholdList
-                key={filter}
-                filter={filter}
-                version={version}
-                onChanged={refresh}
-              />
+              {/* key={filter} restarts the list on page 1 when the filter changes */}
+              <HouseholdList key={filter} filter={filter} version={version} onChanged={refresh} />
             </>
           ) : (
-            <div className="side-body">
-              <p className="placeholder">The delivery route comes in a later step.</p>
-            </div>
+            <RoutePanel route={route} error={routeError} />
           )}
         </aside>
 
-        <MapView depot={depot} />
+        <MapView
+          depot={depot}
+          households={allHouseholds}
+          route={tab === "route" ? route : null}
+        />
       </div>
+
+      {showAdd && (
+        <AddHouseholdModal
+          center={depot ? [depot.lat, depot.lng] : [26.9124, 75.7873]}
+          onClose={() => setShowAdd(false)}
+          onSaved={() => {
+            setShowAdd(false);
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

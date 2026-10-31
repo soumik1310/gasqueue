@@ -1,0 +1,33 @@
+.modal .picker-search {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.modal .picker-search input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.picker-results {
+  list-style: none;
+  max-height: 160px;
+  overflow: auto;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.picker-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+  font-size: 12px;
+}
+.picker-results button:hover {
+  background: var(--bg);
+}

@@ -16,7 +16,7 @@ export async function runAlertCheck(supplierId) {
   if (!supplier) return 0;
   const globalLeadDays = supplier.settings?.alertLeadDays ?? 5;
 
-  // only households not already alerted in this cycle
+
   const households = await Household.find({
     supplier: supplierId,
     alertedForCycle: { $ne: true },
@@ -25,10 +25,10 @@ export async function runAlertCheck(supplierId) {
   let created = 0;
   for (const h of households) {
     const p = predictRunout(h);
-    if (p.daysLeft === null) continue; // no refill data yet
+    if (p.daysLeft === null) continue; 
 
     const leadDays = h.alertLeadDays ?? globalLeadDays;
-    if (p.daysLeft > leadDays) continue; // not close enough yet
+    if (p.daysLeft > leadDays) continue;
 
     await Alert.create({
       supplier: supplierId,
@@ -43,7 +43,6 @@ export async function runAlertCheck(supplierId) {
   return created;
 }
 
-// Runs the check for every supplier
 async function runAlertCheckForAll() {
   const suppliers = await Supplier.find({}, "_id");
   let total = 0;
@@ -53,7 +52,6 @@ async function runAlertCheckForAll() {
   return total;
 }
 
-// "0 8 * * *" means: minute 0, hour 8, every day
 export function startAlertJob() {
   cron.schedule(
     "0 8 * * *",

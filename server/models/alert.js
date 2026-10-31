@@ -13,9 +13,18 @@ const alertSchema = new mongoose.Schema(
       ref: "Household",
       required: true,
     },
-    message: { type: String, required: true },
-    daysLeft: { type: Number, required: true },
-    read: { type: Boolean, default: false },
+    message: { 
+      type: String, 
+      required: true 
+    },
+    daysLeft: { 
+      type: Number, 
+      required: true 
+    },
+    read: { 
+      type: Boolean, 
+      default: false 
+    },
   },
   { timestamps: true }
 );
